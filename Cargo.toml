@@ -1,0 +1,8 @@
+[package]
+name = "rnn"
+version = "0.1.0"
+authors = ["Vladimír Ctibor <vladimir.malky@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rand = "0.8.4"
