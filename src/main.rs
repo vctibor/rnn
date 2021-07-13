@@ -29,6 +29,62 @@ fn argmax(a: Vec<f32>) -> usize {
     largest_ix
 }
 
+
+/* ---- */
+
+fn add(input: (Vec<f32>, Vec<f32>)) -> Vec<f32> {
+    zip(input.0, input.1).map(|(a,b)| a+b).collect::<Vec<f32>>()
+}
+
+fn mul(a: &Vec<f32>, b: f32) -> Vec<f32> {
+    let mut collector = Vec::with_capacity(a.len());
+    for x in a {
+        collector.push(x * b);
+    }
+    collector
+}
+
+fn mull(a: &Vec<Vec<f32>>, b: f32) -> Vec<Vec<f32>> {
+    let mut collector = Vec::with_capacity(a.len());
+    for aa in a {
+        let mut collectora = Vec::with_capacity(aa.len());
+        for aaa in aa {
+            collectora.push(aaa * b);
+        }
+        collector.push(collectora);
+    }
+    collector
+}
+
+fn minus(a: &Vec<f32>, b: &Vec<f32>) -> Vec<f32> {
+    let mut collector = Vec::with_capacity(a.len());
+    for aa in a {
+        for bb in b {
+            collector.push(aa - bb);
+        }
+    }
+    collector
+}
+
+fn minuss(a: &Vec<Vec<f32>>, b: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
+    let mut collector = Vec::with_capacity(a.len());
+    for aa in a {
+        for bb in b {
+            let mut collectora = Vec::with_capacity(aa.len());
+            for aaa in aa {
+                for bbb in bb {
+                    collectora.push(aaa - bbb);
+                }
+            }
+            collector.push(collectora);
+        }
+    }
+    collector
+}
+
+/* ---- */
+
+
 // https://gist.github.com/imbolc/dd0b439a7106ad621eaa1cf4df4a4152
 fn dot_product(matrix: &Vec<Vec<f32>>, vector: &Vec<f32>) -> Vec<f32> {
     let mut prod: Vec<f32> = Vec::with_capacity(vector.len());
@@ -43,7 +99,7 @@ fn dot_product(matrix: &Vec<Vec<f32>>, vector: &Vec<f32>) -> Vec<f32> {
 }
 
 struct Network<const N: usize> where [(); N-1]: {
-    num_layers: usize,
+    //num_layers: usize,
     sizes: [usize; N],
     biases: [Vec<f32>; N-1],
     weights: [Vec<Vec<f32>>; N-1]
@@ -125,7 +181,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         };
 
         Network::<N> {
-            num_layers,
+            //num_layers,
             sizes,
             biases,
             weights
@@ -157,10 +213,58 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         a
     }
 
+    /// Return a tuple ``(nabla_b, nabla_w)`` representing the
+    /// gradient for the cost function C_x.  ``nabla_b`` and
+    /// ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
+    /// to ``self.biases`` and ``self.weights``.
+    fn backpropagate(&self, x: &Vec<f32>, y: &usize) -> ([Vec<f32>; N-1], [Vec<Vec<f32>>; N-1]) {
+        panic!();
+    }
+
     /// Update the network's weights and biases by applying
     /// gradient descent using backpropagation to a single mini batch.
     fn update_mini_batch(&mut self, mini_batch: TrainingData, learning_rate: f32) {
 
+        let mut nabla_biases: [Vec<f32>; N-1] = self.biases.into_iter()
+            .map(|b| vec![0f32; b.len()])
+            .collect::<Vec<Vec<f32>>>()
+            .try_into().unwrap();
+
+        let mut nabla_weights: [Vec<Vec<f32>>; N-1] = self.weights.into_iter()
+            .map(|w| {
+                w.into_iter().map(|ww| vec![0f32; ww.len()]).collect::<Vec<Vec<f32>>>()
+            }).collect::<Vec<Vec<Vec<f32>>>>()
+            .try_into().unwrap();
+
+        for (x, y) in &mini_batch {
+
+            let (delta_nabla_biases, delta_nabla_weights) = self.backpropagate(x, y);
+
+            nabla_biases = zip(nabla_biases, delta_nabla_biases)
+                .map(add)
+                .collect::<Vec<Vec<f32>>>()
+                .try_into().unwrap();
+
+            nabla_weights = zip(nabla_weights, delta_nabla_weights)
+                .map(|(nw, dnw )| {
+                    zip(nw, dnw).map(add).collect()
+                })
+                .collect::<Vec<Vec<Vec<f32>>>>()
+                .try_into().unwrap();
+        }
+
+        // What is learning_rate?
+        let rate = learning_rate / (mini_batch.len() as f32);
+
+        self.weights = zip(&self.weights, nabla_weights)
+            .map(|(w, nw)| minuss(&w, &mull(&nw, rate)))
+            .collect::<Vec<Vec<Vec<f32>>>>()
+            .try_into().unwrap();
+
+        self.biases = zip(&self.biases, nabla_biases)
+            .map(|(b, nb)| minus(b, &mul(&nb, rate)))
+            .collect::<Vec<Vec<f32>>>()
+            .try_into().unwrap();
     }
 
     /// Train the neural network using mini-batch stochastic
@@ -171,6 +275,9 @@ impl<const N: usize> Network<N> where [(); N-1]: {
     /// network will be evaluated against the test data after each
     /// epoch, and partial progress printed out.  This is useful for
     /// tracking progress, but slows things down substantially.
+    ///
+    /// It is called *stochastic* gradient descent, because we select
+    /// sample from entire training set.
     fn stochastic_gradient_descent(&mut self,
         mut training_data: TrainingData,
         epochs: i32,
@@ -178,12 +285,6 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         learning_rate: f32,                 // eta is learning rate η.
         test_data: Option<TrainingData>)
     {
-        
-
-        //assert!(mini_batch_size <= self.sizes[self.sizes.len()]);
-
-        let n = training_data.len();
-
         let mut rng = rand::thread_rng();
 
         for epoch in 0..epochs {
@@ -202,7 +303,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
 
             let mini_batches = {
                 let mut mini_batches: Vec<TrainingData> = Vec::new();
-                for k in (0..n).step_by(mini_batch_size) {
+                for k in (0..training_data.len()).step_by(mini_batch_size) {
                     mini_batches.push(training_data[k..k+mini_batch_size].try_into().unwrap())
                 }
                 mini_batches
