@@ -11,8 +11,14 @@ use rand::prelude::*;
 ///  with highest activation value.
 type TrainingData = Vec<(Vec<f32>, usize)>;
 
+/// The sigmoid function.
 fn sigmoid(z: f32) -> f32 {
     1.0 / (1.0 + (-z).exp())
+}
+
+/// Derivative of the sigmoid function.
+fn sigmoid_prime(z: f32) -> f32 {
+    sigmoid(z) * (1.0-sigmoid(z))
 }
 
 /// Returns index of largest element in vector,
@@ -213,28 +219,89 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         a
     }
 
+
+    /// Helper function to get zeroed weight and biases matrices.
+    fn nabla(&self) -> ([Vec<f32>; N-1], [Vec<Vec<f32>>; N-1]) {
+        let nabla_biases: [Vec<f32>; N-1] = self.biases.into_iter()
+            .map(|b| vec![0f32; b.len()])
+            .collect::<Vec<Vec<f32>>>()
+            .try_into().unwrap();
+
+        let nabla_weights: [Vec<Vec<f32>>; N-1] = self.weights.into_iter()
+            .map(|w| {
+                w.into_iter().map(|ww| vec![0f32; ww.len()]).collect::<Vec<Vec<f32>>>()
+            }).collect::<Vec<Vec<Vec<f32>>>>()
+            .try_into().unwrap();
+
+        (nabla_biases, nabla_weights)
+    }
+
+
     /// Return a tuple ``(nabla_b, nabla_w)`` representing the
     /// gradient for the cost function C_x.  ``nabla_b`` and
     /// ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
     /// to ``self.biases`` and ``self.weights``.
     fn backpropagate(&self, x: &Vec<f32>, y: &usize) -> ([Vec<f32>; N-1], [Vec<Vec<f32>>; N-1]) {
-        panic!();
+        
+        let (mut nabla_biases, mut nabla_weights) = self.nabla();
+
+        // feedforward
+
+        let mut activation = x.clone();
+
+        // list to store all the activations, layer by layer
+        let mut activations = vec![activation.clone()];
+
+        // list to store all the z vectors, layer by layer
+        let mut zs = vec![];
+
+        for (b, w) in zip(&self.biases, &self.weights) {
+            let z = add((dot_product(&w, &activation), b.clone()));
+            zs.push(z.clone());
+            activation = z.into_iter().map(sigmoid).collect();
+            activations.push(activation.clone());
+        }
+
+        // backward pass
+
+        /*
+        delta = self.cost_derivative(activations[-1], y) * \
+            sigmoid_prime(zs[-1])
+        nabla_b[-1] = delta
+        nabla_w[-1] = np.dot(delta, activations[-2].transpose())
+        # Note that the variable l in the loop below is used a little
+        # differently to the notation in Chapter 2 of the book.  Here,
+        # l = 1 means the last layer of neurons, l = 2 is the
+        # second-last layer, and so on.  It's a renumbering of the
+        # scheme in the book, used here to take advantage of the fact
+        # that Python can use negative indices in lists.
+        for l in xrange(2, self.num_layers):
+            z = zs[-l]
+            sp = sigmoid_prime(z)
+            delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
+            nabla_b[-l] = delta
+            nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
+        return (nabla_b, nabla_w)
+        */
+
+
+        let sigmoid_prime_z: Vec<f32> = zs.last().unwrap().clone().into_iter().map(sigmoid_prime).collect();
+        let output_activations: Vec<f32> = activations.last().unwrap().clone();
+        
+        //let delta = self.cost_derivative(output_activations, y) * sigmoid_prime_z;
+
+        (nabla_biases, nabla_weights)
+    }
+
+    fn cost_derivative(&self, output_activations: &Vec<f32>, y: &usize) {
+        panic!("not yet implemented");
     }
 
     /// Update the network's weights and biases by applying
     /// gradient descent using backpropagation to a single mini batch.
     fn update_mini_batch(&mut self, mini_batch: TrainingData, learning_rate: f32) {
 
-        let mut nabla_biases: [Vec<f32>; N-1] = self.biases.into_iter()
-            .map(|b| vec![0f32; b.len()])
-            .collect::<Vec<Vec<f32>>>()
-            .try_into().unwrap();
-
-        let mut nabla_weights: [Vec<Vec<f32>>; N-1] = self.weights.into_iter()
-            .map(|w| {
-                w.into_iter().map(|ww| vec![0f32; ww.len()]).collect::<Vec<Vec<f32>>>()
-            }).collect::<Vec<Vec<Vec<f32>>>>()
-            .try_into().unwrap();
+        let (mut nabla_biases, mut nabla_weights) = self.nabla();
 
         for (x, y) in &mini_batch {
 
@@ -277,7 +344,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
     /// tracking progress, but slows things down substantially.
     ///
     /// It is called *stochastic* gradient descent, because we select
-    /// sample from entire training set.
+    /// random sample from entire training set.
     fn stochastic_gradient_descent(&mut self,
         mut training_data: TrainingData,
         epochs: i32,
