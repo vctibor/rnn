@@ -5,6 +5,8 @@
 use std::{convert::TryInto, iter::zip};
 use rand::prelude::*;
 
+mod mnist_loader;
+
 /// Vector of (x, y) tuples, where `x` is input Vector, which has 
 ///  to be the same size as the first layer of Neural Net, and `y`
 ///  is expected result in form of index of node in last layer 
@@ -419,6 +421,17 @@ impl<const N: usize> Network<N> where [(); N-1]: {
 
 
 fn main() {
+
+    let train_data = mnist_loader::load_data("train");
+    println!("{}", train_data.len());
+
+    let test_data = mnist_loader::load_data("t10k");
+    println!("{}", test_data.len());
+
+    
+
+
+    /*
     let network = Network::new([3, 5, 2]);
     
     // network.print();
@@ -430,4 +443,5 @@ fn main() {
     println!("{:?}", result);
 
     //network.stochastic_gradient_descent();
+    */
 }
