@@ -11,7 +11,7 @@ mod mnist_loader;
 ///  to be the same size as the first layer of Neural Net, and `y`
 ///  is expected result in form of index of node in last layer 
 ///  with highest activation value.
-type TrainingData = Vec<(Vec<f32>, usize)>;
+type TrainingData = Vec<(Vec<f64>, usize)>;
 
 /// The sigmoid function.
 fn sigmoid(z: f64) -> f64 {
@@ -267,10 +267,11 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         // backward pass
 
         /*
-        delta = self.cost_derivative(activations[-1], y) * \
-            sigmoid_prime(zs[-1])
+        delta = self.cost_derivative(activations[-1], y) * sigmoid_prime(zs[-1])
+
         nabla_b[-1] = delta
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
+
         # Note that the variable l in the loop below is used a little
         # differently to the notation in Chapter 2 of the book.  Here,
         # l = 1 means the last layer of neurons, l = 2 is the
@@ -290,13 +291,17 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         let sigmoid_prime_z: Vec<f64> = zs.last().unwrap().clone().into_iter().map(sigmoid_prime).collect();
         let output_activations: Vec<f64> = activations.last().unwrap().clone();
         
-        //let delta = self.cost_derivative(output_activations, y) * sigmoid_prime_z;
+
+        let delta = self.cost_derivative(&output_activations, *y);
 
         (nabla_biases, nabla_weights)
     }
 
-    fn cost_derivative(&self, output_activations: &Vec<f64>, y: &usize) {
-        panic!("not yet implemented");
+    fn cost_derivative(&self, actual_activations: &Vec<f64>, y: usize) -> Vec<f64> {
+        let expected_activations = label2Activations(y, actual_activations.len());
+        zip(actual_activations, expected_activations)
+            .map(|(x, y)| x-y)
+            .collect()
     }
 
     /// Update the network's weights and biases by applying
@@ -418,6 +423,16 @@ impl<const N: usize> Network<N> where [(); N-1]: {
     */
 }
 
+
+/// Takes label and turns it into vector of the same size as network output layer
+/// (`activation_layer_size`) with zeroes in all positions except label-th one.
+/// `label` has to be less than or equal to `activation_layer_size`.
+fn label2Activations(label: usize, activation_layer_size: usize) -> Vec<f64> {
+    assert!(label <= activation_layer_size);
+    let mut activation_layer = vec![0f64; activation_layer_size];
+    activation_layer[label] = 1.0;
+    activation_layer
+}
 
 
 fn main() {
