@@ -91,38 +91,3 @@ pub fn load_data(dataset_name: &str) -> Vec<MnistImage>
 
     ret
 }
-
-
-/*
-/// This ought to be vector consisting of values from 0 to 1, of the same size
-/// as the first (input) layer of the network.
-//pub type NetworkInput = Vec<f32>;
-
-
-//pub type TrainingData = 
-
-/// Return the MNIST data as a tuple containing the training data,
-/// the validation data, and the test data.
-/// 
-/// The ``training_data`` is returned as a tuple with two entries.
-/// The first entry contains the actual training images.  This is a
-/// numpy ndarray with 50,000 entries.  Each entry is, in turn, a
-/// numpy ndarray with 784 values, representing the 28 * 28 = 784
-/// pixels in a single MNIST image.
-/// 
-/// The second entry in the ``training_data`` tuple is a numpy ndarray
-/// containing 50,000 entries.  Those entries are just the digit
-/// values (0...9) for the corresponding images contained in the first
-/// entry of the tuple.
-/// 
-/// The ``validation_data`` and ``test_data`` are similar, except
-/// each contains only 10,000 images.
-/// 
-/// This is a nice data format, but for use in neural networks it's
-/// helpful to modify the format of the ``training_data`` a little.
-/// That's done in the wrapper function ``load_data_wrapper()``, see
-/// below.
-pub fn load_data() {
-    
-}
-*/

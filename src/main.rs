@@ -14,18 +14,18 @@ mod mnist_loader;
 type TrainingData = Vec<(Vec<f32>, usize)>;
 
 /// The sigmoid function.
-fn sigmoid(z: f32) -> f32 {
+fn sigmoid(z: f64) -> f64 {
     1.0 / (1.0 + (-z).exp())
 }
 
 /// Derivative of the sigmoid function.
-fn sigmoid_prime(z: f32) -> f32 {
+fn sigmoid_prime(z: f64) -> f64 {
     sigmoid(z) * (1.0-sigmoid(z))
 }
 
 /// Returns index of largest element in vector,
 ///  assuming no NaNs or Infs.
-fn argmax(a: Vec<f32>) -> usize {
+fn argmax(a: Vec<f64>) -> usize {
     let mut largest_ix = 0;
     let mut largest_val = 0.0;
     for (ix, val) in a.into_iter().enumerate() {
@@ -40,11 +40,11 @@ fn argmax(a: Vec<f32>) -> usize {
 
 /* ---- */
 
-fn add(input: (Vec<f32>, Vec<f32>)) -> Vec<f32> {
-    zip(input.0, input.1).map(|(a,b)| a+b).collect::<Vec<f32>>()
+fn add(input: (Vec<f64>, Vec<f64>)) -> Vec<f64> {
+    zip(input.0, input.1).map(|(a,b)| a+b).collect::<Vec<f64>>()
 }
 
-fn mul(a: &Vec<f32>, b: f32) -> Vec<f32> {
+fn mul(a: &Vec<f64>, b: f64) -> Vec<f64> {
     let mut collector = Vec::with_capacity(a.len());
     for x in a {
         collector.push(x * b);
@@ -52,7 +52,7 @@ fn mul(a: &Vec<f32>, b: f32) -> Vec<f32> {
     collector
 }
 
-fn mull(a: &Vec<Vec<f32>>, b: f32) -> Vec<Vec<f32>> {
+fn mull(a: &Vec<Vec<f64>>, b: f64) -> Vec<Vec<f64>> {
     let mut collector = Vec::with_capacity(a.len());
     for aa in a {
         let mut collectora = Vec::with_capacity(aa.len());
@@ -64,7 +64,7 @@ fn mull(a: &Vec<Vec<f32>>, b: f32) -> Vec<Vec<f32>> {
     collector
 }
 
-fn minus(a: &Vec<f32>, b: &Vec<f32>) -> Vec<f32> {
+fn minus(a: &Vec<f64>, b: &Vec<f64>) -> Vec<f64> {
     let mut collector = Vec::with_capacity(a.len());
     for aa in a {
         for bb in b {
@@ -74,7 +74,7 @@ fn minus(a: &Vec<f32>, b: &Vec<f32>) -> Vec<f32> {
     collector
 }
 
-fn minuss(a: &Vec<Vec<f32>>, b: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
+fn minuss(a: &Vec<Vec<f64>>, b: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
     let mut collector = Vec::with_capacity(a.len());
     for aa in a {
         for bb in b {
@@ -94,10 +94,10 @@ fn minuss(a: &Vec<Vec<f32>>, b: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
 
 
 // https://gist.github.com/imbolc/dd0b439a7106ad621eaa1cf4df4a4152
-fn dot_product(matrix: &Vec<Vec<f32>>, vector: &Vec<f32>) -> Vec<f32> {
-    let mut prod: Vec<f32> = Vec::with_capacity(vector.len());
+fn dot_product(matrix: &Vec<Vec<f64>>, vector: &Vec<f64>) -> Vec<f64> {
+    let mut prod: Vec<f64> = Vec::with_capacity(vector.len());
     for row in matrix {
-        let mut cell = 0f32;
+        let mut cell = 0f64;
         for (a, b) in row.iter().zip(vector.iter()) {
             cell += a * b;
         }
@@ -109,8 +109,8 @@ fn dot_product(matrix: &Vec<Vec<f32>>, vector: &Vec<f32>) -> Vec<f32> {
 struct Network<const N: usize> where [(); N-1]: {
     //num_layers: usize,
     sizes: [usize; N],
-    biases: [Vec<f32>; N-1],
-    weights: [Vec<Vec<f32>>; N-1]
+    biases: [Vec<f64>; N-1],
+    weights: [Vec<Vec<f64>>; N-1]
 }
 
 impl<const N: usize> Network<N> where [(); N-1]: {
@@ -130,7 +130,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
 
         /*
             Bias is one value per node.
-            So we have Vec for each layer and in each Vec we have f32 bias for each node in this layer.
+            So we have Vec for each layer and in each Vec we have f64 bias for each node in this layer.
 
             [
                 array([[-0.4651621 ], [ 0.8158959 ], [ 0.54096477]]),
@@ -139,10 +139,10 @@ impl<const N: usize> Network<N> where [(); N-1]: {
 
             (First layer is input layer, therefore doesn't have biases or weights.)
         */
-        let biases: [Vec<f32>; N-1] = {
+        let biases: [Vec<f64>; N-1] = {
             let mut biases = Vec::new();
             for layer_size in &sizes[1..] {
-                let v: Vec<f32> = (0..*layer_size).map(|_| rng.gen_range(-1f32..1f32)).collect();
+                let v: Vec<f64> = (0..*layer_size).map(|_| rng.gen_range(-1f64..1f64)).collect();
                 biases.push(v);
             }
             biases.try_into().unwrap()
@@ -164,7 +164,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
                 ])
             ]
         */
-        let weights: [Vec<Vec<f32>>; N-1] = {
+        let weights: [Vec<Vec<f64>>; N-1] = {
 
             let mut weights = Vec::new();
 
@@ -178,7 +178,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
                 let mut node_weights = Vec::new();
 
                 for _node in 0..*layer_size {
-                    let v: Vec<f32> = (0..*inputs).map(|_| rng.gen_range(-1f32..1f32)).collect();
+                    let v: Vec<f64> = (0..*inputs).map(|_| rng.gen_range(-1f64..1f64)).collect();
                     node_weights.push(v);
                 }
 
@@ -196,7 +196,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         }
     }
 
-    fn feedforward(&self, input: &Vec<f32>) -> Vec<f32> {
+    fn feedforward(&self, input: &Vec<f64>) -> Vec<f64> {
 
         // Input has to be vector of size equal to number of input nodes.
         assert_eq!(input.len(), self.sizes[0]);
@@ -213,7 +213,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
             biases.reverse();
             
             // dot product + biases
-            let dot_product_plus_biases: Vec<f32> = dot_product.into_iter().map(|x| x + biases.pop().unwrap()).collect();
+            let dot_product_plus_biases: Vec<f64> = dot_product.into_iter().map(|x| x + biases.pop().unwrap()).collect();
 
             a = dot_product_plus_biases.into_iter().map(sigmoid).collect();
         }
@@ -223,16 +223,16 @@ impl<const N: usize> Network<N> where [(); N-1]: {
 
 
     /// Helper function to get zeroed weight and biases matrices.
-    fn nabla(&self) -> ([Vec<f32>; N-1], [Vec<Vec<f32>>; N-1]) {
-        let nabla_biases: [Vec<f32>; N-1] = self.biases.into_iter()
-            .map(|b| vec![0f32; b.len()])
-            .collect::<Vec<Vec<f32>>>()
+    fn nabla(&self) -> ([Vec<f64>; N-1], [Vec<Vec<f64>>; N-1]) {
+        let nabla_biases: [Vec<f64>; N-1] = self.biases.into_iter()
+            .map(|b| vec![0f64; b.len()])
+            .collect::<Vec<Vec<f64>>>()
             .try_into().unwrap();
 
-        let nabla_weights: [Vec<Vec<f32>>; N-1] = self.weights.into_iter()
+        let nabla_weights: [Vec<Vec<f64>>; N-1] = self.weights.into_iter()
             .map(|w| {
-                w.into_iter().map(|ww| vec![0f32; ww.len()]).collect::<Vec<Vec<f32>>>()
-            }).collect::<Vec<Vec<Vec<f32>>>>()
+                w.into_iter().map(|ww| vec![0f64; ww.len()]).collect::<Vec<Vec<f64>>>()
+            }).collect::<Vec<Vec<Vec<f64>>>>()
             .try_into().unwrap();
 
         (nabla_biases, nabla_weights)
@@ -243,7 +243,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
     /// gradient for the cost function C_x.  ``nabla_b`` and
     /// ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
     /// to ``self.biases`` and ``self.weights``.
-    fn backpropagate(&self, x: &Vec<f32>, y: &usize) -> ([Vec<f32>; N-1], [Vec<Vec<f32>>; N-1]) {
+    fn backpropagate(&self, x: &Vec<f64>, y: &usize) -> ([Vec<f64>; N-1], [Vec<Vec<f64>>; N-1]) {
         
         let (mut nabla_biases, mut nabla_weights) = self.nabla();
 
@@ -287,21 +287,21 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         */
 
 
-        let sigmoid_prime_z: Vec<f32> = zs.last().unwrap().clone().into_iter().map(sigmoid_prime).collect();
-        let output_activations: Vec<f32> = activations.last().unwrap().clone();
+        let sigmoid_prime_z: Vec<f64> = zs.last().unwrap().clone().into_iter().map(sigmoid_prime).collect();
+        let output_activations: Vec<f64> = activations.last().unwrap().clone();
         
         //let delta = self.cost_derivative(output_activations, y) * sigmoid_prime_z;
 
         (nabla_biases, nabla_weights)
     }
 
-    fn cost_derivative(&self, output_activations: &Vec<f32>, y: &usize) {
+    fn cost_derivative(&self, output_activations: &Vec<f64>, y: &usize) {
         panic!("not yet implemented");
     }
 
     /// Update the network's weights and biases by applying
     /// gradient descent using backpropagation to a single mini batch.
-    fn update_mini_batch(&mut self, mini_batch: TrainingData, learning_rate: f32) {
+    fn update_mini_batch(&mut self, mini_batch: TrainingData, learning_rate: f64) {
 
         let (mut nabla_biases, mut nabla_weights) = self.nabla();
 
@@ -311,28 +311,28 @@ impl<const N: usize> Network<N> where [(); N-1]: {
 
             nabla_biases = zip(nabla_biases, delta_nabla_biases)
                 .map(add)
-                .collect::<Vec<Vec<f32>>>()
+                .collect::<Vec<Vec<f64>>>()
                 .try_into().unwrap();
 
             nabla_weights = zip(nabla_weights, delta_nabla_weights)
                 .map(|(nw, dnw )| {
                     zip(nw, dnw).map(add).collect()
                 })
-                .collect::<Vec<Vec<Vec<f32>>>>()
+                .collect::<Vec<Vec<Vec<f64>>>>()
                 .try_into().unwrap();
         }
 
         // What is learning_rate?
-        let rate = learning_rate / (mini_batch.len() as f32);
+        let rate = learning_rate / (mini_batch.len() as f64);
 
         self.weights = zip(&self.weights, nabla_weights)
             .map(|(w, nw)| minuss(&w, &mull(&nw, rate)))
-            .collect::<Vec<Vec<Vec<f32>>>>()
+            .collect::<Vec<Vec<Vec<f64>>>>()
             .try_into().unwrap();
 
         self.biases = zip(&self.biases, nabla_biases)
             .map(|(b, nb)| minus(b, &mul(&nb, rate)))
-            .collect::<Vec<Vec<f32>>>()
+            .collect::<Vec<Vec<f64>>>()
             .try_into().unwrap();
     }
 
@@ -351,7 +351,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         mut training_data: TrainingData,
         epochs: i32,
         mini_batch_size: usize,
-        learning_rate: f32,                 // eta is learning rate η.
+        learning_rate: f64,                 // eta is learning rate η.
         test_data: Option<TrainingData>)
     {
         let mut rng = rand::thread_rng();
@@ -363,7 +363,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
             /*
             Divide training data into Vector of Vectors of size mini_batch_size.
 
-            let mini_batches: Vec<Vec<(f32, f32)>> =
+            let mini_batches: Vec<Vec<(f64, f64)>> =
                 (0..n)
                 .step_by(mini_batch_size)
                 .map(|k| training_data[k..k+mini_batch_size].try_into().unwrap())
@@ -428,6 +428,9 @@ fn main() {
     let test_data = mnist_loader::load_data("t10k");
     println!("{}", test_data.len());
 
+
+    let a = train_data.last().unwrap();
+    println!("{}", a.image.len());
     
 
 
