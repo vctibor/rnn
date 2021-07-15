@@ -1,9 +1,15 @@
-#![feature(const_generics)]
-#![feature(const_evaluatable_checked)]
-#![feature(iter_zip)]
+// Disable unused warning while in dev, remove later.
+#![allow(dead_code)]
 
-use std::{convert::TryInto, iter::zip};
+
+//#![feature(const_generics)]
+//#![feature(const_evaluatable_checked)]
+//#![feature(iter_zip)]
+
+use std::{convert::TryInto};
 use rand::prelude::*;
+
+use Iterator;
 
 mod mnist_loader;
 
@@ -41,7 +47,8 @@ fn argmax(a: Vec<f64>) -> usize {
 /* ---- */
 
 fn add(input: (Vec<f64>, Vec<f64>)) -> Vec<f64> {
-    zip(input.0, input.1).map(|(a,b)| a+b).collect::<Vec<f64>>()
+    input.0.into_iter().zip(input.1)
+        .map(|(a,b)| a+b).collect()
 }
 
 fn mul(a: &Vec<f64>, b: f64) -> Vec<f64> {
@@ -106,40 +113,30 @@ fn dot_product(matrix: &Vec<Vec<f64>>, vector: &Vec<f64>) -> Vec<f64> {
     prod
 }
 
-struct Network<const N: usize> where [(); N-1]: {
-    //num_layers: usize,
-    sizes: [usize; N],
-    biases: [Vec<f64>; N-1],
-    weights: [Vec<Vec<f64>>; N-1]
+struct Network {
+    num_layers: usize,
+    sizes: Vec<usize>,
+    biases: Vec<Vec<f64>>,
+    weights: Vec<Vec<Vec<f64>>>
 }
 
-impl<const N: usize> Network<N> where [(); N-1]: {
+impl Network {
     
-    fn new(sizes: [usize; N]) -> Network<N> where [(); N-1]: {
+    fn new(sizes: Vec<usize>) -> Network {
 
-        let num_layers = N;
+        let num_layers = sizes.len();
 
-        /*
-            NOTE:
-            Source material uses Gaussian distribution to 
-             initialize weights and biases, but we are using uniform distribution instead.
-            It shouldn't cause much issues, but it is starting point for investigation
-             in case the network doesn't behave the way we expect.
-        */
+        // NOTE:
+        // Source material uses Gaussian distribution to 
+        // initialize weights and biases, but we are using uniform distribution instead.
+        // It shouldn't cause much issues, but it is starting point for investigation
+        // in case the network doesn't behave the way we expect.
         let mut rng = rand::thread_rng();
 
-        /*
-            Bias is one value per node.
-            So we have Vec for each layer and in each Vec we have f64 bias for each node in this layer.
-
-            [
-                array([[-0.4651621 ], [ 0.8158959 ], [ 0.54096477]]),
-                array([[-0.22998989]])
-            ]
-
-            (First layer is input layer, therefore doesn't have biases or weights.)
-        */
-        let biases: [Vec<f64>; N-1] = {
+        // Bias is one value per node.
+        // So we have Vec for each layer and in each Vec we have f64 bias for each node in this layer.
+        // (First layer is input layer, therefore doesn't have biases or weights.)
+        let biases: Vec<Vec<f64>> = {
             let mut biases = Vec::new();
             for layer_size in &sizes[1..] {
                 let v: Vec<f64> = (0..*layer_size).map(|_| rng.gen_range(-1f64..1f64)).collect();
@@ -148,30 +145,17 @@ impl<const N: usize> Network<N> where [(); N-1]: {
             biases.try_into().unwrap()
         };
 
-        /*
-            Each node has weight for each input, that means for every node in previous layer.
-            Therefore we have Vec for each layer and in each layer we have Vec for every node,
-             containing weight per every node in previous layer.
-
-            [
-                array([
-                    [-0.83729071, -0.73971336],
-                    [ 0.70516901, -2.23510949],
-                    [-1.57423188, -0.32834226]
-                ]),
-                array([
-                    [ 0.12641327, -2.2249865 ,  2.14234274]
-                ])
-            ]
-        */
-        let weights: [Vec<Vec<f64>>; N-1] = {
+        // Each node has weight for each input, that means for every node in previous layer.
+        // Therefore we have Vec for each layer and in each layer we have Vec for every node,
+        // containing weight per every node in previous layer.
+        let weights: Vec<Vec<Vec<f64>>> = {
 
             let mut weights = Vec::new();
 
             let a = &sizes[..sizes.len()];
             let b = &sizes[1..];
 
-            let zipped: Vec<(&usize, &usize)> = zip(a, b).collect();
+            let zipped: Vec<(&usize, &usize)> = a.into_iter().zip(b).collect();
 
             for (inputs, layer_size) in zipped {
 
@@ -188,8 +172,8 @@ impl<const N: usize> Network<N> where [(); N-1]: {
             weights.try_into().unwrap()
         };
 
-        Network::<N> {
-            //num_layers,
+        Network {
+            num_layers,
             sizes,
             biases,
             weights
@@ -204,8 +188,8 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         // Intermediate result between each layer.
         let mut a = input.clone();
 
-        for (biases, weights) in zip(&self.biases, &self.weights) {
-            let dot_product = dot_product(weights, &a);
+        for (biases, weights) in self.biases.clone().into_iter().zip(self.weights.clone()) {
+            let dot_product = dot_product(&weights, &a);
 
             assert_eq!(biases.len(), dot_product.len());
 
@@ -223,13 +207,13 @@ impl<const N: usize> Network<N> where [(); N-1]: {
 
 
     /// Helper function to get zeroed weight and biases matrices.
-    fn nabla(&self) -> ([Vec<f64>; N-1], [Vec<Vec<f64>>; N-1]) {
-        let nabla_biases: [Vec<f64>; N-1] = self.biases.into_iter()
+    fn nabla(&self) -> (Vec<Vec<f64>>, Vec<Vec<Vec<f64>>>) {
+        let nabla_biases: Vec<Vec<f64>> = self.biases.clone().into_iter()
             .map(|b| vec![0f64; b.len()])
             .collect::<Vec<Vec<f64>>>()
             .try_into().unwrap();
 
-        let nabla_weights: [Vec<Vec<f64>>; N-1] = self.weights.into_iter()
+        let nabla_weights: Vec<Vec<Vec<f64>>> = self.weights.clone().into_iter()
             .map(|w| {
                 w.into_iter().map(|ww| vec![0f64; ww.len()]).collect::<Vec<Vec<f64>>>()
             }).collect::<Vec<Vec<Vec<f64>>>>()
@@ -243,7 +227,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
     /// gradient for the cost function C_x.  ``nabla_b`` and
     /// ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
     /// to ``self.biases`` and ``self.weights``.
-    fn backpropagate(&self, x: &Vec<f64>, y: &usize) -> ([Vec<f64>; N-1], [Vec<Vec<f64>>; N-1]) {
+    fn backpropagate(&self, x: &Vec<f64>, y: &usize) -> (Vec<Vec<f64>>, Vec<Vec<Vec<f64>>>) {
         
         let (mut nabla_biases, mut nabla_weights) = self.nabla();
 
@@ -257,7 +241,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         // list to store all the z vectors, layer by layer
         let mut zs = vec![];
 
-        for (b, w) in zip(&self.biases, &self.weights) {
+        for (b, w) in self.biases.clone().into_iter().zip(self.weights.clone()) {
             let z = add((dot_product(&w, &activation), b.clone()));
             zs.push(z.clone());
             activation = z.into_iter().map(sigmoid).collect();
@@ -298,8 +282,8 @@ impl<const N: usize> Network<N> where [(); N-1]: {
     }
 
     fn cost_derivative(&self, actual_activations: &Vec<f64>, y: usize) -> Vec<f64> {
-        let expected_activations = label2Activations(y, actual_activations.len());
-        zip(actual_activations, expected_activations)
+        let expected_activations = label_to_activations(y, actual_activations.len());
+        actual_activations.into_iter().zip(expected_activations)
             .map(|(x, y)| x-y)
             .collect()
     }
@@ -314,14 +298,14 @@ impl<const N: usize> Network<N> where [(); N-1]: {
 
             let (delta_nabla_biases, delta_nabla_weights) = self.backpropagate(x, y);
 
-            nabla_biases = zip(nabla_biases, delta_nabla_biases)
+            nabla_biases = nabla_biases.into_iter().zip(delta_nabla_biases)
                 .map(add)
                 .collect::<Vec<Vec<f64>>>()
                 .try_into().unwrap();
 
-            nabla_weights = zip(nabla_weights, delta_nabla_weights)
+            nabla_weights = nabla_weights.into_iter().zip(delta_nabla_weights)
                 .map(|(nw, dnw )| {
-                    zip(nw, dnw).map(add).collect()
+                    nw.into_iter().zip(dnw).map(add).collect()
                 })
                 .collect::<Vec<Vec<Vec<f64>>>>()
                 .try_into().unwrap();
@@ -330,15 +314,13 @@ impl<const N: usize> Network<N> where [(); N-1]: {
         // What is learning_rate?
         let rate = learning_rate / (mini_batch.len() as f64);
 
-        self.weights = zip(&self.weights, nabla_weights)
+        self.weights = self.weights.clone().into_iter().zip(nabla_weights)
             .map(|(w, nw)| minuss(&w, &mull(&nw, rate)))
-            .collect::<Vec<Vec<Vec<f64>>>>()
-            .try_into().unwrap();
+            .collect();
 
-        self.biases = zip(&self.biases, nabla_biases)
-            .map(|(b, nb)| minus(b, &mul(&nb, rate)))
-            .collect::<Vec<Vec<f64>>>()
-            .try_into().unwrap();
+        self.biases = self.biases.clone().into_iter().zip(nabla_biases)
+            .map(|(b, nb)| minus(&b, &mul(&nb, rate)))
+            .collect();
     }
 
     /// Train the neural network using mini-batch stochastic
@@ -427,7 +409,7 @@ impl<const N: usize> Network<N> where [(); N-1]: {
 /// Takes label and turns it into vector of the same size as network output layer
 /// (`activation_layer_size`) with zeroes in all positions except label-th one.
 /// `label` has to be less than or equal to `activation_layer_size`.
-fn label2Activations(label: usize, activation_layer_size: usize) -> Vec<f64> {
+fn label_to_activations(label: usize, activation_layer_size: usize) -> Vec<f64> {
     assert!(label <= activation_layer_size);
     let mut activation_layer = vec![0f64; activation_layer_size];
     activation_layer[label] = 1.0;
