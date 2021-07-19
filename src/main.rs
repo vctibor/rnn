@@ -52,13 +52,11 @@ fn add_vectors(input: (&Vec<f64>, &Vec<f64>)) -> Vec<f64> {
         .map(|(a,b)| a+b).collect()
 }
 
+
 fn multiply_vector_by_scalar(a: &Vec<f64>, b: f64) -> Vec<f64> {
-    let mut collector = Vec::with_capacity(a.len());
-    for x in a {
-        collector.push(x * b);
-    }
-    collector
+    a.iter().map(|a| a*b).collect()
 }
+
 
 fn multiply_matrix_by_scalar(a: &Vec<Vec<f64>>, b: f64) -> Vec<Vec<f64>> {
     let mut collector = Vec::with_capacity(a.len());
@@ -72,15 +70,11 @@ fn multiply_matrix_by_scalar(a: &Vec<Vec<f64>>, b: f64) -> Vec<Vec<f64>> {
     collector
 }
 
+
 fn subtract_vectors(a: &Vec<f64>, b: &Vec<f64>) -> Vec<f64> {
-    let mut collector = Vec::with_capacity(a.len());
-    for aa in a {
-        for bb in b {
-            collector.push(aa - bb);
-        }
-    }
-    collector
+    a.iter().zip(b).map(|(a,b)| a-b).collect()
 }
+
 
 
 fn subtract_matrices(a: &Vec<Vec<f64>>, b: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
@@ -398,7 +392,7 @@ impl Network {
         for (x, y) in &mini_batch {
 
             let (delta_nabla_biases, delta_nabla_weights) = self.backpropagate(x, y);
-
+    
             nabla_biases = nabla_biases.iter().zip(&delta_nabla_biases)
                 .map(add_vectors)
                 .collect();
@@ -412,6 +406,7 @@ impl Network {
 
         // What is learning_rate?
         let rate = learning_rate / (mini_batch.len() as f64);
+
 
         self.weights = self.weights.iter().zip(&nabla_weights)
             .map(|(w, nw)| subtract_matrices(w, &multiply_matrix_by_scalar(nw, rate)))
