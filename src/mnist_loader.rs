@@ -91,3 +91,16 @@ pub fn load_data(dataset_name: &str) -> Vec<MnistImage>
 
     ret
 }
+
+/// Returns tuple (training_data, validation_data, test_data).
+pub fn load_all() -> (Vec<MnistImage>,  Vec<MnistImage>, Vec<MnistImage>) {
+    let mut training_data = load_data("train");
+    let validation_data = training_data.split_off(50000);
+    let test_data = load_data("t10k");
+
+    println!("{:?}", training_data.len());
+    println!("{:?}", validation_data.len());
+    println!("{:?}", test_data.len());
+
+    (training_data, validation_data, test_data)
+}

@@ -399,16 +399,16 @@ impl Network {
 
             let n = (activations.len() as i32 - l -1) as usize;
 
-            println!("delta {:?}", delta);
-            println!("activation {:?}", activations[n]);
+            //println!("delta {:?}", delta);
+            //println!("activation {:?}", activations[n]);
 
             let weight = multiply_vectors4(&delta, &activations[n]);
             
             put(&mut nabla_weights, weight, -l);
 
-            println!("\nbiases {:?}", nabla_biases);
-            println!("\nweights {:?}", nabla_weights);
-            println!("--------");
+            //println!("\nbiases {:?}", nabla_biases);
+            //println!("\nweights {:?}", nabla_weights);
+            //println!("--------");
         }
 
         /*
@@ -503,7 +503,7 @@ impl Network {
             ).collect();
 
             for mini_batch in mini_batches {
-                self.update_mini_batch(mini_batch, learning_rate);
+                //self.update_mini_batch(mini_batch, learning_rate);
             }
 
             if let Some(test_data) = &test_data {
@@ -576,48 +576,19 @@ fn sample_net() -> (Network, Vec<f64>) {
 
 fn main() {
 
+    let (training_data, validation_data, test_data) = mnist_loader::load_all();
 
-    let (network, input) = sample_net();
-    //net.print();
+    let training_data = training_data.into_iter().map(|image| (image.image, image.classification as usize)).collect();
+    let test_data = test_data.into_iter().map(|image| (image.image, image.classification as usize)).collect();
 
-    let results = network.feedforward(&input);
+    //net = network.Network([784, 30, 10])
+    //net.SGD(training_data, 30, 10, 100.0, test_data=test_data)
 
-    //println!("{:?}", results);
+    let epochs = 30;
+    let mini_batch_size = 10;
+    let learning_rate = 100.0;
 
-    let (b, w) = network.backpropagate(&input, &0);
+    let mut net = Network::new(vec![784, 30, 10]);
+    net.stochastic_gradient_descent(training_data, epochs, mini_batch_size, learning_rate, Some(test_data));
 
-
-
-    //println!("weights: {:?}", w);
-    //println!("biases: {:?}", b);
-
-
-
-
-
-    /*
-    let train_data = mnist_loader::load_data("train");
-    println!("{}", train_data.len());
-
-    let test_data = mnist_loader::load_data("t10k");
-    println!("{}", test_data.len());
-
-
-    let a = train_data.last().unwrap();
-    println!("{}", a.image.len());
-    */
-    
-    /*
-    let network = Network::new([3, 5, 2]);
-    
-    // network.print();
-
-    let a = vec!(5.0, 4.0, 3.1);
-
-    let result = network.feedforward(&a);
-
-    println!("{:?}", result);
-
-    //network.stochastic_gradient_descent();
-    */
 }
