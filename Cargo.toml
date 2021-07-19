@@ -8,3 +8,6 @@ edition = "2018"
 rand = "0.8.4"
 flate2 = "1.0.20"
 byteorder = "1.4.3"
+
+[profile.release]
+debug = true

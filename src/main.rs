@@ -12,6 +12,7 @@ use rand::prelude::*;
 use Iterator;
 
 mod mnist_loader;
+mod matrix;
 
 /// Vector of (x, y) tuples, where `x` is input Vector, which has 
 /// to be the same size as the first layer of Neural Net, and `y`
@@ -46,7 +47,7 @@ fn argmax(a: Vec<f64>) -> usize {
 
 /* ---- */
 
-fn add_vectors(input: (Vec<f64>, Vec<f64>)) -> Vec<f64> {
+fn add_vectors(input: (&Vec<f64>, &Vec<f64>)) -> Vec<f64> {
     input.0.into_iter().zip(input.1)
         .map(|(a,b)| a+b).collect()
 }
@@ -81,6 +82,7 @@ fn subtract_vectors(a: &Vec<f64>, b: &Vec<f64>) -> Vec<f64> {
     collector
 }
 
+// IMPROVE PERFORMANCE!
 fn subtract_matrices(a: &Vec<Vec<f64>>, b: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
     let mut collector = Vec::with_capacity(a.len());
     for aa in a {
@@ -97,10 +99,18 @@ fn subtract_matrices(a: &Vec<Vec<f64>>, b: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
     collector
 }
 
+fn subtract_matrices2(a: &Vec<Vec<f64>>, b: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    a.iter().zip(b).map(|(aa,bb)| {
+        aa.iter().zip(bb).map(|(aaa,bbb)| {
+            aaa-bbb
+        }).collect()
+    }).collect()
+}
+
 /// Cross product
 /// https://nrich.maths.org/2393
 fn multiply_vectors(a: &Vec<f64>, b: &Vec<f64>) -> Vec<f64> {
-    a.into_iter().zip(b).map(|(a, b)|a*b).collect()
+    a.iter().zip(b).map(|(a, b)|a*b).collect()
 }
 
 /* ---- */
@@ -118,18 +128,6 @@ fn dot_product(matrix: &Vec<Vec<f64>>, vector: &Vec<f64>) -> Vec<f64> {
     }
     prod
 }
-
-/*
-fn multiply_vectors2(a: &Vec<f64>, b: &Vec<f64>) -> Vec<f64> {
-    let mut res = vec![];
-    for aa in a {
-        for bb in b {
-            res.push(aa*bb);
-        }
-    }
-    res
-}
-*/
 
 fn multiply_vectors3(a: &Vec<Vec<f64>>, b: &Vec<f64>) -> Vec<f64> {
     let mut res = vec![];
@@ -254,36 +252,31 @@ impl Network {
         // Intermediate result between each layer.
         let mut a = input.clone();
 
-        for (biases, weights) in self.biases.clone().into_iter().zip(self.weights.clone()) {
-            let dot_product = dot_product(&weights, &a);
+        for (biases, weights) in self.biases.iter().zip(&self.weights) {
+            let dot_product = dot_product(weights, &a);
 
             assert_eq!(biases.len(), dot_product.len());
-
-            let mut biases = biases.clone();
-            biases.reverse();
             
             // dot product + biases
-            let dot_product_plus_biases: Vec<f64> = dot_product.into_iter().map(|x| x + biases.pop().unwrap()).collect();
+            let dot_product_plus_biases: Vec<f64> = dot_product.iter().map(|x| x + biases[0]).collect();
 
-            a = dot_product_plus_biases.into_iter().map(sigmoid).collect();
+            a = dot_product_plus_biases.iter().map(|a| sigmoid(*a)).collect();
         }
 
         a
     }
 
-
+    // IMPROVE PERFORMANCE!
     /// Helper function to get zeroed weight and biases matrices.
     fn nabla(&self) -> (Biases, Weights) {
-        let nabla_biases: Vec<Vec<f64>> = self.biases.clone().into_iter()
+        let nabla_biases: Vec<Vec<f64>> = self.biases.iter()
             .map(|b| vec![0f64; b.len()])
-            .collect::<Vec<Vec<f64>>>()
-            .try_into().unwrap();
+            .collect();
 
-        let nabla_weights: Vec<Vec<Vec<f64>>> = self.weights.clone().into_iter()
+        let nabla_weights: Vec<Vec<Vec<f64>>> = self.weights.iter()
             .map(|w| {
-                w.into_iter().map(|ww| vec![0f64; ww.len()]).collect::<Vec<Vec<f64>>>()
-            }).collect::<Vec<Vec<Vec<f64>>>>()
-            .try_into().unwrap();
+                w.iter().map(|ww| vec![0f64; ww.len()]).collect::<Vec<Vec<f64>>>()
+            }).collect();
 
         (nabla_biases, nabla_weights)
     }
@@ -311,38 +304,33 @@ impl Network {
 
         let (mut nabla_biases, mut nabla_weights) = self.nabla();
 
-        //println!("\nbiases {:?}", nabla_biases);
-        //println!("\nweights {:?}", nabla_weights);
-        //println!("--------");
-
         // feedforward
 
-        let mut activation = input_layer.clone();
-
         // list to store all the activations, layer by layer
-        let mut activations = vec![activation.clone()];
+        let mut activations = vec![input_layer.clone()];
 
         // list to store all the z vectors, layer by layer
         let mut zs = vec![];
 
-        for (b, w) in self.biases.clone().into_iter().zip(self.weights.clone()) {
-            let z = add_vectors((dot_product(&w, &activation), b.clone()));
+        for (b, w) in self.biases.iter().zip(&self.weights) {
+            let z = add_vectors((&dot_product(w, activations.last().unwrap()), b));
 
             // z is calculated correctly
 
-            zs.push(z.clone());
-            activation = z.into_iter().map(sigmoid).collect();
+            let activation = z.iter().map(|a| sigmoid(*a)).collect();
 
+            zs.push(z);
+            
             // activation is calculated correctly
 
-            activations.push(activation.clone());
+            activations.push(activation);
         }
 
         // backward pass
         let delta = {
-            let output_activations: Vec<f64> = activations.last().unwrap().clone();
-            let sigmoid_prime_z: Vec<f64> = zs.last().unwrap().clone().into_iter().map(sigmoid_prime).collect();
-            let cost_derivative = self.cost_derivative(&output_activations, &desired_activations);
+            let output_activations = activations.last().unwrap();
+            let sigmoid_prime_z: Vec<f64> = zs.last().unwrap().iter().map(|a|sigmoid_prime(*a)).collect();
+            let cost_derivative = self.cost_derivative(output_activations, &desired_activations);
             multiply_vectors(&cost_derivative, &sigmoid_prime_z)
         };
 
@@ -359,10 +347,6 @@ impl Network {
         // nabla_w[-1] is correct
         // nabla_b[-1] is correct
         
-        //println!("\nbiases {:?}", nabla_biases);
-        //println!("\nweights {:?}", nabla_weights);
-        //println!("--------");
-
         // Note that the variable l in the loop below is used a little
         // differently to the notation in Chapter 2 of the book.  Here,
         // l = 1 means the last layer of neurons, l = 2 is the
@@ -376,39 +360,22 @@ impl Network {
                 zs[n].clone()
             };
             
-            
-
             let delta = {
-                let sigmoid_prime_z: Vec<f64> = z.into_iter().map(sigmoid_prime).collect();
+                let sigmoid_prime_z = z.iter().map(|a| sigmoid_prime(*a)).collect();
 
                 let w = get(&self.weights, -l+1); // w is correct
 
-                //println!("w: {:?}", w);
-                //println!("delta: {:?}", delta);
-
                 let product = multiply_vectors3(w, &delta);
-
-                //println!("product: {:?}", product);
 
                 multiply_vectors(&product, &sigmoid_prime_z)
             };
 
-            
-
-            put(&mut nabla_biases, delta.clone(), -l);
-
             let n = (activations.len() as i32 - l -1) as usize;
-
-            //println!("delta {:?}", delta);
-            //println!("activation {:?}", activations[n]);
 
             let weight = multiply_vectors4(&delta, &activations[n]);
             
+            put(&mut nabla_biases, delta, -l);
             put(&mut nabla_weights, weight, -l);
-
-            //println!("\nbiases {:?}", nabla_biases);
-            //println!("\nweights {:?}", nabla_weights);
-            //println!("--------");
         }
 
         /*
@@ -429,7 +396,6 @@ impl Network {
         ]
         */
 
-
         (nabla_biases, nabla_weights)
     }
 
@@ -449,28 +415,26 @@ impl Network {
 
             let (delta_nabla_biases, delta_nabla_weights) = self.backpropagate(x, y);
 
-            nabla_biases = nabla_biases.into_iter().zip(delta_nabla_biases)
+            nabla_biases = nabla_biases.iter().zip(&delta_nabla_biases)
                 .map(add_vectors)
-                .collect::<Vec<Vec<f64>>>()
-                .try_into().unwrap();
+                .collect();
 
-            nabla_weights = nabla_weights.into_iter().zip(delta_nabla_weights)
+            nabla_weights = nabla_weights.iter().zip(&delta_nabla_weights)
                 .map(|(nw, dnw )| {
-                    nw.into_iter().zip(dnw).map(add_vectors).collect()
+                    nw.iter().zip(dnw).map(add_vectors).collect()
                 })
-                .collect::<Vec<Vec<Vec<f64>>>>()
-                .try_into().unwrap();
+                .collect();
         }
 
         // What is learning_rate?
         let rate = learning_rate / (mini_batch.len() as f64);
 
-        self.weights = self.weights.clone().into_iter().zip(nabla_weights)
-            .map(|(w, nw)| subtract_matrices(&w, &multiply_matrix_by_scalar(&nw, rate)))
+        self.weights = self.weights.iter().zip(&nabla_weights)
+            .map(|(w, nw)| subtract_matrices(w, &multiply_matrix_by_scalar(nw, rate)))
             .collect();
 
-        self.biases = self.biases.clone().into_iter().zip(nabla_biases)
-            .map(|(b, nb)| subtract_vectors(&b, &multiply_vector_by_scalar(&nb, rate)))
+        self.biases = self.biases.iter().zip(&nabla_biases)
+            .map(|(b, nb)| subtract_vectors(b, &multiply_vector_by_scalar(nb, rate)))
             .collect();
     }
 
@@ -503,11 +467,11 @@ impl Network {
             ).collect();
 
             for mini_batch in mini_batches {
-                //self.update_mini_batch(mini_batch, learning_rate);
+                self.update_mini_batch(mini_batch, learning_rate);
             }
 
             if let Some(test_data) = &test_data {
-                println!("Eoch {}: {}/{}", epoch, self.evaluate(test_data), test_data.len());
+                println!("Epoch {}: {}/{}", epoch, self.evaluate(test_data), test_data.len());
             } else {
                 println!("Epoch {} complete.", epoch)
             }
@@ -520,11 +484,11 @@ impl Network {
     /// neuron in the final layer has the highest activation.
     fn evaluate(&self, test_data: &TrainingData) -> usize {
 
-        let results: Vec<(usize, usize)> = test_data.into_iter()
+        let results: Vec<(usize, usize)> = test_data.iter()
             .map(|(x, y)| (argmax(self.feedforward(x)), *y) )
             .collect();
 
-        let correct_results: usize = results.into_iter().filter(|(x, y)| x == y).count();
+        let correct_results: usize = results.iter().filter(|(x, y)| x == y).count();
 
         correct_results
     }
@@ -576,19 +540,90 @@ fn sample_net() -> (Network, Vec<f64>) {
 
 fn main() {
 
+    /*
+    let mut net = Network::new(vec![784, 30, 10]);
+
+
     let (training_data, validation_data, test_data) = mnist_loader::load_all();
 
     let training_data = training_data.into_iter().map(|image| (image.image, image.classification as usize)).collect();
     let test_data = test_data.into_iter().map(|image| (image.image, image.classification as usize)).collect();
 
-    //net = network.Network([784, 30, 10])
-    //net.SGD(training_data, 30, 10, 100.0, test_data=test_data)
-
     let epochs = 30;
     let mini_batch_size = 10;
     let learning_rate = 100.0;
 
-    let mut net = Network::new(vec![784, 30, 10]);
+    
     net.stochastic_gradient_descent(training_data, epochs, mini_batch_size, learning_rate, Some(test_data));
+    */
 
+
+
+    use std::time::Instant;
+
+    let mut rng = rand::thread_rng();
+
+
+    let now = Instant::now();
+
+    for _ in 0..10000 {
+
+        let mat1: Vec<Vec<f64>> = {
+            let mut mat = Vec::new();
+            for _ in 0..10000 {
+                let v: Vec<f64> = (0..10000).map(|_| rng.gen_range(-1f64..1f64)).collect();
+                mat.push(v);
+            }
+            mat.try_into().unwrap()
+        };
+
+        let mat2: Vec<Vec<f64>> = {
+            let mut mat = Vec::new();
+            for _ in 0..10000 {
+                let v: Vec<f64> = (0..10000).map(|_| rng.gen_range(-1f64..1f64)).collect();
+                mat.push(v);
+            }
+            mat.try_into().unwrap()
+        };
+
+        let res = subtract_matrices(&mat1, &mat2);
+    }
+
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
+
+
+
+    let size = 100;
+
+
+    let now = Instant::now();
+
+    for _ in 0..100 {
+
+        let mat1: Vec<Vec<f64>> = {
+            let mut mat = Vec::new();
+            for _ in 0..size {
+                let v: Vec<f64> = (0..size).map(|_| rng.gen_range(-1f64..1f64)).collect();
+                mat.push(v);
+            }
+            mat.try_into().unwrap()
+        };
+
+        let mat2: Vec<Vec<f64>> = {
+            let mut mat = Vec::new();
+            for _ in 0..size {
+                let v: Vec<f64> = (0..size).map(|_| rng.gen_range(-1f64..1f64)).collect();
+                mat.push(v);
+            }
+            mat.try_into().unwrap()
+        };
+
+        let res = subtract_matrices2(&mat1, &mat2);
+
+        println!("{}", res.len());
+    }
+
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
 }
