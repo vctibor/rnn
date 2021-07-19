@@ -82,24 +82,8 @@ fn subtract_vectors(a: &Vec<f64>, b: &Vec<f64>) -> Vec<f64> {
     collector
 }
 
-// IMPROVE PERFORMANCE!
-fn subtract_matrices(a: &Vec<Vec<f64>>, b: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
-    let mut collector = Vec::with_capacity(a.len());
-    for aa in a {
-        for bb in b {
-            let mut collectora = Vec::with_capacity(aa.len());
-            for aaa in aa {
-                for bbb in bb {
-                    collectora.push(aaa - bbb);
-                }
-            }
-            collector.push(collectora);
-        }
-    }
-    collector
-}
 
-fn subtract_matrices2(a: &Vec<Vec<f64>>, b: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+fn subtract_matrices(a: &Vec<Vec<f64>>, b: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
     a.iter().zip(b).map(|(aa,bb)| {
         aa.iter().zip(bb).map(|(aaa,bbb)| {
             aaa-bbb
@@ -540,7 +524,6 @@ fn sample_net() -> (Network, Vec<f64>) {
 
 fn main() {
 
-    /*
     let mut net = Network::new(vec![784, 30, 10]);
 
 
@@ -555,75 +538,4 @@ fn main() {
 
     
     net.stochastic_gradient_descent(training_data, epochs, mini_batch_size, learning_rate, Some(test_data));
-    */
-
-
-
-    use std::time::Instant;
-
-    let mut rng = rand::thread_rng();
-
-
-    let now = Instant::now();
-
-    for _ in 0..10000 {
-
-        let mat1: Vec<Vec<f64>> = {
-            let mut mat = Vec::new();
-            for _ in 0..10000 {
-                let v: Vec<f64> = (0..10000).map(|_| rng.gen_range(-1f64..1f64)).collect();
-                mat.push(v);
-            }
-            mat.try_into().unwrap()
-        };
-
-        let mat2: Vec<Vec<f64>> = {
-            let mut mat = Vec::new();
-            for _ in 0..10000 {
-                let v: Vec<f64> = (0..10000).map(|_| rng.gen_range(-1f64..1f64)).collect();
-                mat.push(v);
-            }
-            mat.try_into().unwrap()
-        };
-
-        let res = subtract_matrices(&mat1, &mat2);
-    }
-
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
-
-
-
-    let size = 100;
-
-
-    let now = Instant::now();
-
-    for _ in 0..100 {
-
-        let mat1: Vec<Vec<f64>> = {
-            let mut mat = Vec::new();
-            for _ in 0..size {
-                let v: Vec<f64> = (0..size).map(|_| rng.gen_range(-1f64..1f64)).collect();
-                mat.push(v);
-            }
-            mat.try_into().unwrap()
-        };
-
-        let mat2: Vec<Vec<f64>> = {
-            let mut mat = Vec::new();
-            for _ in 0..size {
-                let v: Vec<f64> = (0..size).map(|_| rng.gen_range(-1f64..1f64)).collect();
-                mat.push(v);
-            }
-            mat.try_into().unwrap()
-        };
-
-        let res = subtract_matrices2(&mat1, &mat2);
-
-        println!("{}", res.len());
-    }
-
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
 }
