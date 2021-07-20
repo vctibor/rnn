@@ -132,6 +132,46 @@ fn multiply_vectors4(a: &Vec<f64>, b: &Vec<f64>) -> Vec<Vec<f64>> {
 }
 
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_matrix_subtraction() {
+        let mat1 = vec![
+            vec![3.0, 3.0, 3.0],
+            vec![3.0, 3.0, 3.0],
+            vec![3.0, 3.0, 3.0]
+        ];
+        let mat2 = vec![
+            vec![2.0, 2.0, 2.0],
+            vec![2.0, 2.0, 2.0],
+            vec![2.0, 2.0, 2.0]
+        ];
+        let expected = vec![
+            vec![1.0, 1.0, 1.0],
+            vec![1.0, 1.0, 1.0],
+            vec![1.0, 1.0, 1.0]
+        ];
+        assert_eq!(expected, subtract_matrices(&mat1, &mat2));
+    }
+
+    #[test]
+    fn test_matrix_scalar_multiplication() {
+        let mat1 = vec![
+            vec![3.0, 3.0, 3.0],
+            vec![3.0, 3.0, 3.0],
+            vec![3.0, 3.0, 3.0]
+        ];
+        let expected = vec![
+            vec![30.0, 30.0, 30.0],
+            vec![30.0, 30.0, 30.0],
+            vec![30.0, 30.0, 30.0]
+        ];
+        assert_eq!(expected, multiply_matrix_by_scalar(&mat1, 10.0));
+    }
+}
+
 
 fn get<T>(vec: &Vec<T>, ix: i32) -> &T {
     let n = ((vec.len() as i32) + ix) as usize;
@@ -258,7 +298,6 @@ impl Network {
 
         (nabla_biases, nabla_weights)
     }
-
 
     /// Return a tuple ``(nabla_b, nabla_w)`` representing the
     /// gradient for the cost function C_x.  ``nabla_b`` and
@@ -404,17 +443,18 @@ impl Network {
                 .collect();
         }
 
-        // What is learning_rate?
         let rate = learning_rate / (mini_batch.len() as f64);
 
-
-        self.weights = self.weights.iter().zip(&nabla_weights)
+        let new_weights: Weights = self.weights.iter().zip(&nabla_weights)
             .map(|(w, nw)| subtract_matrices(w, &multiply_matrix_by_scalar(nw, rate)))
             .collect();
 
-        self.biases = self.biases.iter().zip(&nabla_biases)
+        let new_biases: Biases = self.biases.iter().zip(&nabla_biases)
             .map(|(b, nb)| subtract_vectors(b, &multiply_vector_by_scalar(nb, rate)))
             .collect();
+        
+        self.weights = new_weights;
+        self.biases = new_biases;
     }
 
     /// Train the neural network using mini-batch stochastic
@@ -521,7 +561,6 @@ fn main() {
 
     let mut net = Network::new(vec![784, 30, 10]);
 
-
     let (training_data, validation_data, test_data) = mnist_loader::load_all();
 
     let training_data = training_data.into_iter().map(|image| (image.image, image.classification as usize)).collect();
@@ -529,7 +568,7 @@ fn main() {
 
     let epochs = 30;
     let mini_batch_size = 10;
-    let learning_rate = 100.0;
+    let learning_rate = 3.0;
 
     
     net.stochastic_gradient_descent(training_data, epochs, mini_batch_size, learning_rate, Some(test_data));

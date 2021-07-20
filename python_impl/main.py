@@ -16,5 +16,6 @@ res = network.feedforward(net_input)
 b, w = network.backprop(net_input, 1)
 
 
-print b
-print w
+print "biases", b
+print ""
+print "weights", w

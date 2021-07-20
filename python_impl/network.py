@@ -118,22 +118,11 @@ class Network(object):
         for l in xrange(2, self.num_layers):
             z = zs[-l]
             sp = sigmoid_prime(z)
-
             w = self.weights[-l+1].transpose()
-
             pro = np.dot(w, delta)
-
             delta = pro * sp
-
             nabla_b[-l] = delta
-
-            print "delta", delta
-            print "activation", activations[-l-1].transpose()
-
             weight = np.dot(delta, activations[-l-1].transpose())
-
-            print "weight", weight
-
             nabla_w[-l] = weight
 
         return (nabla_b, nabla_w)
