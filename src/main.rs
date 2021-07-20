@@ -8,6 +8,7 @@
 
 use std::{convert::TryInto};
 use rand::prelude::*;
+use rand_distr::StandardNormal;
 
 use Iterator;
 
@@ -220,7 +221,7 @@ impl Network {
         let biases: Vec<Vec<f64>> = {
             let mut biases = Vec::new();
             for layer_size in &sizes[1..] {
-                let v: Vec<f64> = (0..*layer_size).map(|_| rng.gen_range(-1f64..1f64)).collect();
+                let v: Vec<f64> = (0..*layer_size).map(|_| rng.sample(StandardNormal)).collect();
                 biases.push(v);
             }
             biases.try_into().unwrap()
@@ -243,7 +244,7 @@ impl Network {
                 let mut node_weights = Vec::new();
 
                 for _node in 0..*layer_size {
-                    let v: Vec<f64> = (0..*inputs).map(|_| rng.gen_range(-1f64..1f64)).collect();
+                    let v: Vec<f64> = (0..*inputs).map(|_| rng.sample(StandardNormal)).collect();
                     node_weights.push(v);
                 }
 
@@ -566,9 +567,16 @@ fn main() {
     let training_data = training_data.into_iter().map(|image| (image.image, image.classification as usize)).collect();
     let test_data = test_data.into_iter().map(|image| (image.image, image.classification as usize)).collect();
 
+    // Book default values
     let epochs = 30;
     let mini_batch_size = 10;
     let learning_rate = 3.0;
+
+    /*
+    let epochs = 60;
+    let mini_batch_size = 100;
+    let learning_rate = 0.1;
+    */
 
     
     net.stochastic_gradient_descent(training_data, epochs, mini_batch_size, learning_rate, Some(test_data));
