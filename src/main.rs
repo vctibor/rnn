@@ -92,22 +92,6 @@ fn multiply_vectors(a: &Vec<f64>, b: &Vec<f64>) -> Vec<f64> {
     a.iter().zip(b).map(|(a, b)|a*b).collect()
 }
 
-/* ---- */
-
-
-// https://gist.github.com/imbolc/dd0b439a7106ad621eaa1cf4df4a4152
-fn dot_product(matrix: &Vec<Vec<f64>>, vector: &Vec<f64>) -> Vec<f64> {
-    let mut prod: Vec<f64> = Vec::with_capacity(vector.len());
-    for row in matrix {
-        let mut cell = 0f64;
-        for (a, b) in row.iter().zip(vector.iter()) {
-            cell += a * b;
-        }
-        prod.push(cell);
-    }
-    prod
-}
-
 fn multiply_vectors3(a: &Vec<Vec<f64>>, b: &Vec<f64>) -> Vec<f64> {
     let mut res = vec![];
     for aa in a {
@@ -132,6 +116,20 @@ fn multiply_vectors4(a: &Vec<f64>, b: &Vec<f64>) -> Vec<Vec<f64>> {
     res
 }
 
+/* ---- */
+
+// https://gist.github.com/imbolc/dd0b439a7106ad621eaa1cf4df4a4152
+fn dot_product(matrix: &Vec<Vec<f64>>, vector: &Vec<f64>) -> Vec<f64> {
+    let mut prod: Vec<f64> = Vec::with_capacity(vector.len());
+    for row in matrix {
+        let mut cell = 0f64;
+        for (a, b) in row.iter().zip(vector.iter()) {
+            cell += a * b;
+        }
+        prod.push(cell);
+    }
+    prod
+}
 
 #[cfg(test)]
 mod tests {
@@ -170,6 +168,21 @@ mod tests {
             vec![30.0, 30.0, 30.0]
         ];
         assert_eq!(expected, multiply_matrix_by_scalar(&mat1, 10.0));
+    }
+
+    #[test]
+    fn test_vector_ubtraction() {
+        let vec1 = vec![3.0, 3.0, 3.0];
+        let vec2 = vec![2.0, 2.0, 2.0];
+        let expected = vec![1.0, 1.0, 1.0];
+        assert_eq!(expected, subtract_vectors(&vec1, &vec2));
+    }
+
+    #[test]
+    fn test_vector_scalar_multiplication() {
+        let vec1 = vec![3.0, 3.0, 3.0];
+        let expected = vec![30.0, 30.0, 30.0];
+        assert_eq!(expected, multiply_vector_by_scalar(&vec1, 10.0));
     }
 }
 
@@ -395,24 +408,6 @@ impl Network {
             put(&mut nabla_biases, delta, -l);
             put(&mut nabla_weights, weight, -l);
         }
-
-        /*
-        expected output
-
-        weights
-        [
-            array([
-                [-0.00052112, -0.00097119, -0.00071062],
-                [-0.00074712, -0.00139235, -0.00101879]
-            ]),
-            array([[-0.01376709, -0.01337866]])
-        ]
-
-        biases
-        [
-            array([[-0.00236875], [-0.00339598]]), array([[-0.02099017]])
-        ]
-        */
 
         (nabla_biases, nabla_weights)
     }
