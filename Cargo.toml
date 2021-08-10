@@ -9,6 +9,7 @@ rand = "0.8.4"
 rand_distr = "0.4.1"
 flate2 = "1.0.20"
 byteorder = "1.4.3"
+nalgebra = "0.29"
 
 [profile.release]
 debug = true
