@@ -13,7 +13,6 @@ use rand_distr::StandardNormal;
 use Iterator;
 
 mod mnist_loader;
-mod matrix;
 
 /// Vector of (x, y) tuples, where `x` is input Vector, which has 
 /// to be the same size as the first layer of Neural Net, and `y`
@@ -290,7 +289,9 @@ impl Network {
             assert_eq!(biases.len(), dot_product.len());
             
             // dot product + biases
-            let dot_product_plus_biases: Vec<f64> = dot_product.iter().map(|x| x + biases[0]).collect();
+            //let dot_product_plus_biases: Vec<f64> = dot_product.iter().map(|x| x + biases[0]).collect();
+
+            let dot_product_plus_biases: Vec<f64> = dot_product.iter().zip(biases).map(|(x, b)| x+b).collect();
 
             a = dot_product_plus_biases.iter().map(|a| sigmoid(*a)).collect();
         }
@@ -555,7 +556,7 @@ fn sample_net() -> (Network, Vec<f64>) {
 
 fn main() {
 
-    let mut net = Network::new(vec![784, 30, 10]);
+    let mut net = Network::new(vec![784, 100, 10]);
 
     let (training_data, validation_data, test_data) = mnist_loader::load_all();
 
