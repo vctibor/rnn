@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use rand::prelude::*;
 use rand_distr::StandardNormal;
 use Iterator;
@@ -27,12 +29,34 @@ fn sigmoid(z: f64) -> f64 {
     1.0 / (1.0 + (-z).exp())
 }
 
-/*
 /// Derivative of the sigmoid function.
 fn sigmoid_prime(z: f64) -> f64 {
     sigmoid(z) * (1.0-sigmoid(z))
 }
-*/
+
+/// Takes label and turns it into vector of the same size as network output layer
+/// (`activation_layer_size`) with zeroes in all positions except label-th one.
+/// `label` has to be less than or equal to `activation_layer_size`.
+fn label_to_activations(label: usize, activation_layer_size: usize) -> DVector<f64> {
+    assert!(label <= activation_layer_size);
+    //let mut activation_layer = vec![0f64; activation_layer_size];
+    
+    let mut activation_layer = DVector::<f64>::zeros(activation_layer_size);
+    
+    activation_layer[label] = 1.0;
+    activation_layer
+}
+
+fn get<T>(vec: &Vec<T>, ix: i32) -> &T {
+    let n = ((vec.len() as i32) + ix) as usize;
+    &vec[n]
+}
+
+fn put<T>(vec: &mut Vec<T>, val: T, ix: i32) {
+    let n = ((vec.len() as i32) + ix) as usize;
+    vec[n] = val;
+}
+
 
 pub struct Network {
     pub num_layers: usize,
@@ -118,12 +142,12 @@ impl Network {
 
             training_data.shuffle(&mut rng);
 
-            let mini_batches: Vec<TrainingData> = (0..training_data.len()).step_by(mini_batch_size).map(|k|
-                training_data[k..k+mini_batch_size].try_into().unwrap()
+            let mini_batches: List<TrainingData> = (0..training_data.len()).step_by(mini_batch_size).map(|k|
+                training_data[k..k+mini_batch_size].into()
             ).collect();
 
             for mini_batch in mini_batches {
-                self.update_mini_batch(mini_batch, learning_rate);
+                self.update(mini_batch, learning_rate);
             }
 
             if let Some(test_data) = &test_data {
@@ -165,8 +189,8 @@ impl Network {
     /// gradient for the cost function C_x.  ``nabla_b`` and
     /// ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
     /// to ``self.biases`` and ``self.weights``.
-    fn backpropagate(&self, input_layer: &Vec<f64>, label: &usize) -> (Biases, Weights) {
-        /*
+    fn backpropagate(&self, input_layer: &DVector<f64>, label: &usize) -> (Biases, Weights) {
+        
         // `input_layer` is `x` in the book
         // `label` is `y` in the book
 
@@ -193,9 +217,9 @@ impl Network {
         let mut zs = vec![];
 
         for (b, w) in self.biases.iter().zip(&self.weights) {
-            let z = add_vectors((&dot_product(w, activations.last().unwrap()), b));
+            let z = (w * activations.last().unwrap()) + b;
 
-            let activation = z.iter().map(|a| sigmoid(*a)).collect();
+            let activation = z.map(sigmoid);
 
             zs.push(z);
             
@@ -205,9 +229,9 @@ impl Network {
         // backward pass
         let delta = {
             let output_activations = activations.last().unwrap();
-            let sigmoid_prime_z: Vec<f64> = zs.last().unwrap().iter().map(|a|sigmoid_prime(*a)).collect();
+            let sigmoid_prime_z = zs.last().unwrap().map(sigmoid_prime);
             let cost_derivative = self.cost_derivative(output_activations, &desired_activations);
-            multiply_vectors(&cost_derivative, &sigmoid_prime_z)
+            &cost_derivative * &sigmoid_prime_z
         };
 
         // delta is calculated correctly
@@ -218,7 +242,7 @@ impl Network {
         let n = nabla_weights.len() - 1;
         let nn = activations.len() - 2;
 
-        nabla_weights[n] = multiply_vectors4(&delta, &activations[nn]);
+        nabla_weights[n] = &delta * &activations[nn];
 
         // nabla_w[-1] is correct
         // nabla_b[-1] is correct
@@ -241,67 +265,50 @@ impl Network {
 
                 let w = get(&self.weights, -l+1); // w is correct
 
-                let product = multiply_vectors3(w, &delta);
+                let product = w * &delta;
 
-                multiply_vectors(&product, &sigmoid_prime_z)
+                &product * &sigmoid_prime_z
             };
 
             let n = (activations.len() as i32 - l -1) as usize;
 
-            let weight = multiply_vectors4(&delta, &activations[n]);
+            let weight = &delta * &activations[n];
             
             put(&mut nabla_biases, delta, -l);
             put(&mut nabla_weights, weight, -l);
         }
 
         (nabla_biases, nabla_weights)
-        */
-
-        panic!();
     }
 
-    fn cost_derivative(&self, actual_activations: &Vec<f64>, expected_activations: &Vec<f64>) -> Vec<f64> {
-        actual_activations.into_iter().zip(expected_activations)
-            .map(|(x, y)| x-y)
-            .collect()
+    fn cost_derivative(&self, actual_activations: &DVector<f64>, expected_activations: &DVector<f64>) -> DVector<f64> {
+        actual_activations - expected_activations
     }
 
     /// Update the network's weights and biases by applying
     /// gradient descent using backpropagation to a single mini batch.
-    fn update_mini_batch(&mut self, mini_batch: TrainingData, learning_rate: f64) {
+    ///
+    /// This function is called `update_mini_batch` in the book.
+    fn update(&mut self, mini_batch: TrainingData, learning_rate: f64) {
 
-        /*
         let (mut nabla_biases, mut nabla_weights) = self.nabla();
-
         for (x, y) in &mini_batch {
-
             let (delta_nabla_biases, delta_nabla_weights) = self.backpropagate(x, y);
-    
-            nabla_biases = nabla_biases.iter().zip(&delta_nabla_biases)
-                .map(add_vectors)
-                .collect();
-
-            nabla_weights = nabla_weights.iter().zip(&delta_nabla_weights)
-                .map(|(nw, dnw )| {
-                    nw.iter().zip(dnw).map(add_vectors).collect()
-                })
-                .collect();
+            nabla_biases = nabla_biases.iter().zip(delta_nabla_biases).map(|(nb, dnb)| nb+dnb).collect();
+            nabla_weights = nabla_weights.iter().zip(delta_nabla_weights).map(|(nw, dnw)| nw+dnw).collect();
         }
 
         let rate = learning_rate / (mini_batch.len() as f64);
 
         let new_weights: Weights = self.weights.iter().zip(&nabla_weights)
-            .map(|(w, nw)| subtract_matrices(w, &multiply_matrix_by_scalar(nw, rate)))
+            .map(|(w, nw)| w - (nw * rate))
             .collect();
 
         let new_biases: Biases = self.biases.iter().zip(&nabla_biases)
-            .map(|(b, nb)| subtract_vectors(b, &multiply_vector_by_scalar(nb, rate)))
+            .map(|(b, nb)| b - (nb * rate))
             .collect();
         
         self.weights = new_weights;
         self.biases = new_biases;
-        */
-
-        panic!();
     }
 }
