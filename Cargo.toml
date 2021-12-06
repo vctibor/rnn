@@ -5,6 +5,7 @@ authors = ["Vladimír Ctibor <vladimir.malky@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+getrandom = { version = "0.2", features = ["js"] }
 rand = "0.8.4"
 rand_distr = "0.4.1"
 flate2 = "1.0.20"
