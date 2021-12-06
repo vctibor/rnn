@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use rand::prelude::*;
 use rand_distr::StandardNormal;
 use Iterator;
@@ -22,7 +20,7 @@ type Weights = List<DMatrix<f64>>;
 /// to be the same size as the first layer of Neural Net, and `y`
 /// is expected result in form of index of node in last layer 
 /// with highest activation value.
-type TrainingData = List<(DVector<f64>, usize)>;
+pub type TrainingData = List<(DVector<f64>, usize)>;
 
 /// The sigmoid function.
 fn sigmoid(z: f64) -> f64 {
@@ -38,25 +36,11 @@ fn sigmoid_prime(z: f64) -> f64 {
 /// (`activation_layer_size`) with zeroes in all positions except label-th one.
 /// `label` has to be less than or equal to `activation_layer_size`.
 fn label_to_activations(label: usize, activation_layer_size: usize) -> DVector<f64> {
-    assert!(label <= activation_layer_size);
-    //let mut activation_layer = vec![0f64; activation_layer_size];
-    
+    assert!(label <= activation_layer_size);    
     let mut activation_layer = DVector::<f64>::zeros(activation_layer_size);
-    
     activation_layer[label] = 1.0;
     activation_layer
 }
-
-fn get<T>(vec: &Vec<T>, ix: i32) -> &T {
-    let n = ((vec.len() as i32) + ix) as usize;
-    &vec[n]
-}
-
-fn put<T>(vec: &mut Vec<T>, val: T, ix: i32) {
-    let n = ((vec.len() as i32) + ix) as usize;
-    vec[n] = val;
-}
-
 
 pub struct Network {
     pub num_layers: usize,
@@ -75,13 +59,11 @@ impl Network {
         // Bias is one value per node.
         // So we have Vec for each layer and in each Vec we have f64 bias for each node in this layer.
         // (First layer is input layer, therefore doesn't have biases or weights.)
-        let biases: List<DVector<f64>> = sizes
+        let biases: List<DVector<f64>> = sizes[1..]
             .iter()
-            .map(|layer_size| DVector::<f64>::from_iterator_generic(
-                Dynamic::new(*layer_size), 
-                Const::from_usize(1), 
-                (&mut rng).sample_iter(StandardNormal)
-            ))
+            .map(|layer_size| 
+                DVector::<f64>::from_vec((&mut rng).sample_iter(StandardNormal).take(*layer_size).collect())
+            )
             .collect();
 
         // Each node has weight for each input, that means for every node in previous layer.
@@ -89,10 +71,10 @@ impl Network {
         // containing weight per every node in previous layer.
         let weights: List<DMatrix<f64>> = sizes[..sizes.len()].iter()
             .zip(&sizes[1..])
-            .map(|(previous_layer, this_layer)| DMatrix::<f64>::from_iterator_generic(
-                Dynamic::new(*previous_layer),
-                Dynamic::new(*this_layer),
-                (&mut rng).sample_iter(StandardNormal)
+            .map(|(previous_layer, this_layer)| DMatrix::<f64>::from_vec(
+                *this_layer,
+                *previous_layer,
+                (&mut rng).sample_iter(StandardNormal).take(previous_layer*this_layer).collect()
             ))
             .collect();
 
@@ -217,7 +199,13 @@ impl Network {
         let mut zs = vec![];
 
         for (b, w) in self.biases.iter().zip(&self.weights) {
-            let z = (w * activations.last().unwrap()) + b;
+
+            let activation = activations.last().unwrap();
+
+            //println!("w {} rows {} cols", w.nrows(), w.ncols());
+            //println!("a {} rows {} cols", activation.nrows(), activation.ncols());
+
+            let z = (w * activation) + b;
 
             let activation = z.map(sigmoid);
 
@@ -229,12 +217,10 @@ impl Network {
         // backward pass
         let delta = {
             let output_activations = activations.last().unwrap();
-            let sigmoid_prime_z = zs.last().unwrap().map(sigmoid_prime);
             let cost_derivative = self.cost_derivative(output_activations, &desired_activations);
-            &cost_derivative * &sigmoid_prime_z
+            let sigmoid_prime_z = zs.last().unwrap().map(sigmoid_prime);
+            cost_derivative.component_mul(&sigmoid_prime_z)
         };
-
-        // delta is calculated correctly
         
         let n = nabla_biases.len() - 1;
         nabla_biases[n] = delta.clone();
@@ -242,10 +228,7 @@ impl Network {
         let n = nabla_weights.len() - 1;
         let nn = activations.len() - 2;
 
-        nabla_weights[n] = &delta * &activations[nn];
-
-        // nabla_w[-1] is correct
-        // nabla_b[-1] is correct
+        nabla_weights[n] = &delta * &activations[nn].transpose();
         
         // Note that the variable l in the loop below is used a little
         // differently to the notation in Chapter 2 of the book.  Here,
@@ -253,29 +236,34 @@ impl Network {
         // second-last layer, and so on.  It's a renumbering of the
         // scheme in the book, used here to take advantage of the fact
         // that Python can use negative indices in lists.
-        for l in 2..self.num_layers as i32 {
+        for l in 2..self.num_layers {
             
             let z = {
-                let n = (zs.len() as i32 - l) as usize;
+                let n = zs.len()-l;
                 zs[n].clone()
             };
             
             let delta = {
-                let sigmoid_prime_z = z.iter().map(|a| sigmoid_prime(*a)).collect();
+                let sigmoid_prime_z = z.map(sigmoid_prime);
 
-                let w = get(&self.weights, -l+1); // w is correct
+                let w = &self.weights[&self.weights.len()-l+1];
+
+                println!("w {} rows {} cols", w.nrows(), w.ncols());
+                println!("delta {} rows {} cols", delta.nrows(), delta.ncols());
 
                 let product = w * &delta;
 
-                &product * &sigmoid_prime_z
+                product * sigmoid_prime_z
             };
 
-            let n = (activations.len() as i32 - l -1) as usize;
-
-            let weight = &delta * &activations[n];
+            let n = activations.len()-l-1;
+            let weight = &delta * &activations[n].transpose();
             
-            put(&mut nabla_biases, delta, -l);
-            put(&mut nabla_weights, weight, -l);
+            let n = &nabla_biases.len()-l;
+            nabla_biases[n] = delta;
+
+            let n = &nabla_weights.len()-l;
+            nabla_weights[n] = weight;
         }
 
         (nabla_biases, nabla_weights)
